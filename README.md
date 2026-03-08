@@ -4,6 +4,7 @@ An open-source, self-hosted home energy management system inspired by [evcc](htt
 Local-first, privacy-respecting, and extensible via a single-file plugin architecture.
 
 ![HEMS Dashboard](Dashboard-sreenshot.png)
+![HEMS Pricing](Dashboard-pricing.png)
 
 ## Features
 
