@@ -52,6 +52,18 @@ class ChargingSession(SQLModel, table=True):
     cost_eur: float = 0.0
 
 
+class SolarArray(SQLModel, table=True):
+    """A configured solar panel array for PV forecast calculations."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str                          # e.g. "Zuid-Oost"
+    panel_count: int                   # number of panels
+    wp_per_panel: int                  # watt-peak per panel (e.g. 400)
+    tilt_degrees: float = 35.0        # roof tilt in degrees
+    azimuth_degrees: float = 180.0    # 90=E, 135=SE, 180=S, 225=SW, 270=W
+    enabled: bool = True
+
+
 class DailySummary(SQLModel, table=True):
     """Aggregated daily energy totals, updated at end of day."""
 

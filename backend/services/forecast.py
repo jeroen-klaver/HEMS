@@ -20,6 +20,7 @@ import httpx
 import pvlib
 
 from backend.config import ForecastConfig, HemsConfig
+from backend.models.readings import SolarArray
 
 log = logging.getLogger(__name__)
 
@@ -36,18 +37,29 @@ _cache: dict[str, list[tuple[datetime, float]]] = {}
 async def get_forecast(
     hems: HemsConfig,
     forecast_conf: ForecastConfig,
+    arrays: list[SolarArray] | None = None,
 ) -> list[tuple[datetime, float]]:
     """Return hourly PV production forecast for today and tomorrow.
 
+    If `arrays` is provided and non-empty, sums output across all enabled arrays.
+    Falls back to the single-array ForecastConfig if no DB arrays are configured.
+
     Returns list of (hour_utc, estimated_power_w) tuples.
-    Returns empty list if forecast is disabled or on error.
     """
-    if not forecast_conf.enabled or forecast_conf.system_kwp <= 0:
-        return []
+    enabled_arrays = [a for a in (arrays or []) if a.enabled]
+
+    # Fall back to config.yaml single-array if no DB arrays exist
+    if not enabled_arrays:
+        if not forecast_conf.enabled or forecast_conf.system_kwp <= 0:
+            return []
+        today = date.today().isoformat()
+        if today not in _cache:
+            _cache[today] = await _fetch_forecast(hems, forecast_conf)
+        return _cache[today]
 
     today = date.today().isoformat()
     if today not in _cache:
-        _cache[today] = await _fetch_forecast(hems, forecast_conf)
+        _cache[today] = await _fetch_forecast_multi(hems, enabled_arrays)
     return _cache[today]
 
 
@@ -60,11 +72,8 @@ def clear_cache() -> None:
 # Fetcher + pvlib conversion
 # ---------------------------------------------------------------------------
 
-async def _fetch_forecast(
-    hems: HemsConfig,
-    conf: ForecastConfig,
-) -> list[tuple[datetime, float]]:
-    """Fetch irradiance from Open-Meteo and estimate PV output via pvlib."""
+async def _fetch_irradiance(hems: HemsConfig) -> dict:
+    """Fetch raw irradiance data from Open-Meteo (shared by both fetchers)."""
     params = {
         "latitude": hems.latitude,
         "longitude": hems.longitude,
@@ -72,12 +81,56 @@ async def _fetch_forecast(
         "timezone": "UTC",
         "forecast_days": 2,
     }
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        response = await client.get(_OPEN_METEO_URL, params=params)
+        response.raise_for_status()
+        return response.json()
 
+
+async def _fetch_forecast_multi(
+    hems: HemsConfig,
+    arrays: list[SolarArray],
+) -> list[tuple[datetime, float]]:
+    """Fetch irradiance and sum PV output across multiple arrays."""
     try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            response = await client.get(_OPEN_METEO_URL, params=params)
-            response.raise_for_status()
-            data = response.json()
+        data = await _fetch_irradiance(hems)
+    except Exception as exc:
+        log.warning("Open-Meteo fetch failed: %s", exc)
+        return []
+
+    hourly = data.get("hourly", {})
+    times = hourly.get("time", [])
+    direct = hourly.get("direct_radiation", [])
+    diffuse = hourly.get("diffuse_radiation", [])
+
+    if not times:
+        return []
+
+    results: list[tuple[datetime, float]] = []
+    for i, time_str in enumerate(times):
+        dt = datetime.fromisoformat(time_str).replace(tzinfo=timezone.utc)
+        dni_w = float(direct[i]) if i < len(direct) else 0.0
+        dhi_w = float(diffuse[i]) if i < len(diffuse) else 0.0
+
+        # Sum output of all enabled arrays
+        total_w = 0.0
+        for arr in arrays:
+            system_kwp = arr.panel_count * arr.wp_per_panel / 1000.0
+            # Reuse _pvlib_estimate with a temporary ForecastConfig-like object
+            total_w += _pvlib_estimate_params(dt, dni_w, dhi_w, arr.tilt_degrees, arr.azimuth_degrees, system_kwp)
+
+        results.append((dt, total_w))
+
+    return results
+
+
+async def _fetch_forecast(
+    hems: HemsConfig,
+    conf: ForecastConfig,
+) -> list[tuple[datetime, float]]:
+    """Fetch irradiance from Open-Meteo and estimate PV output via pvlib (single array)."""
+    try:
+        data = await _fetch_irradiance(hems)
     except Exception as exc:
         log.warning("Open-Meteo fetch failed: %s", exc)
         return []
@@ -117,6 +170,21 @@ def _pvlib_estimate(
     diffuse_radiation: float,
     conf: ForecastConfig,
 ) -> float:
+    """Estimate PV output for a single-array ForecastConfig."""
+    return _pvlib_estimate_params(
+        dt, direct_radiation, diffuse_radiation,
+        conf.tilt_degrees, conf.azimuth_degrees, conf.system_kwp,
+    )
+
+
+def _pvlib_estimate_params(
+    dt: datetime,
+    direct_radiation: float,
+    diffuse_radiation: float,
+    tilt_degrees: float,
+    azimuth_degrees: float,
+    system_kwp: float,
+) -> float:
     """Estimate PV output in watts for one hour using pvlib.
 
     Uses a simple PVWatts-style calculation:
@@ -130,7 +198,6 @@ def _pvlib_estimate(
             altitude=0,
         )
 
-        # Use pvlib's irradiance decomposition: direct + diffuse → POA
         solar_zenith = pvlib.solarposition.get_solarposition(
             time=dt,
             latitude=location.latitude,
@@ -138,27 +205,22 @@ def _pvlib_estimate(
         )["zenith"].iloc[0]
 
         poa = pvlib.irradiance.get_total_irradiance(
-            surface_tilt=conf.tilt_degrees,
-            surface_azimuth=conf.azimuth_degrees,
+            surface_tilt=tilt_degrees,
+            surface_azimuth=azimuth_degrees,
             dni=direct_radiation,
             ghi=direct_radiation + diffuse_radiation,
             dhi=diffuse_radiation,
             solar_zenith=solar_zenith,
-            solar_azimuth=0,  # not critical for simple estimate
+            solar_azimuth=0,
         )
 
         poa_w_m2 = float(poa.get("poa_global", 0.0))
-
-        # Power = irradiance * area * efficiency
-        # area (m²) ≈ system_kwp * 1000 / 1000 STC = system_kwp m² (roughly)
-        # We use: power_w = poa * system_kwp / 1.0 kW/m² * efficiency
         system_efficiency = 0.80
-        power_w = poa_w_m2 * conf.system_kwp * system_efficiency
+        power_w = poa_w_m2 * system_kwp * system_efficiency
 
         return max(0.0, power_w)
 
     except Exception as exc:
         log.debug("pvlib estimate failed for %s: %s", dt, exc)
-        # Fallback: simple ratio of direct radiation to STC (1000 W/m²)
-        power_w = (direct_radiation / 1000.0) * conf.system_kwp * 1000 * 0.8
+        power_w = (direct_radiation / 1000.0) * system_kwp * 1000 * 0.8
         return max(0.0, power_w)

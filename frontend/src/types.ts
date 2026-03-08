@@ -82,6 +82,17 @@ export interface IntegrationType {
   config_fields: ConfigField[];
 }
 
+export interface SolarArray {
+  id: number;
+  name: string;
+  panel_count: number;
+  wp_per_panel: number;
+  tilt_degrees: number;
+  azimuth_degrees: number;
+  enabled: boolean;
+  system_kwp: number;
+}
+
 export interface IntegrationInstance {
   id: string;
   type_id: string;

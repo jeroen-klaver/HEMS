@@ -72,12 +72,36 @@ export default function Pricing() {
         </div>
       )}
 
-      {forecast && forecast.points.length > 0 && (
-        <ForecastChart
-          points={forecast.points}
-          systemKwp={forecast.system_kwp}
-        />
-      )}
+      {forecast && forecast.points.length > 0 && (() => {
+        const todayStr = new Date().toLocaleDateString("sv"); // "2026-03-08"
+        const tomorrowStr = new Date(Date.now() + 86400000).toLocaleDateString("sv");
+        const todayKwh = forecast.points
+          .filter((p) => new Date(p.hour).toLocaleDateString("sv") === todayStr)
+          .reduce((s, p) => s + p.power_w / 1000, 0);
+        const tomorrowKwh = forecast.points
+          .filter((p) => new Date(p.hour).toLocaleDateString("sv") === tomorrowStr)
+          .reduce((s, p) => s + p.power_w / 1000, 0);
+        return (
+          <>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-slate-800 rounded-xl p-4">
+                <div className="text-xs text-slate-400 mb-1">Verwacht vandaag</div>
+                <div className="text-2xl font-bold text-yellow-400">{todayKwh.toFixed(1)} kWh</div>
+              </div>
+              <div className="bg-slate-800 rounded-xl p-4">
+                <div className="text-xs text-slate-400 mb-1">Verwacht morgen</div>
+                <div className="text-2xl font-bold text-yellow-400">
+                  {tomorrowKwh > 0 ? `${tomorrowKwh.toFixed(1)} kWh` : "—"}
+                </div>
+              </div>
+            </div>
+            <ForecastChart
+              points={forecast.points}
+              systemKwp={forecast.system_kwp}
+            />
+          </>
+        );
+      })()}
     </div>
   );
 }

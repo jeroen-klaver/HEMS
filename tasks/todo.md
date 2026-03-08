@@ -88,6 +88,45 @@ Following the build order from CLAUDE.md — each layer is testable before the n
 
 ---
 
+## Phase 11: Multi-array Solar Configuration + GUI
+
+### Achtergrond
+Gebruiker heeft 2 solar arrays (Zuid-Oost 11 panelen, Zuid-West 8 panelen) met verschillende
+hellingshoek en azimuth. Arrays worden opgeslagen in SQLite (net als integrations), zodat
+de GUI ze kan beheren zonder config.yaml aan te raken.
+
+### Backend
+
+- [ ] `backend/models/readings.py` — `SolarArray` SQLModel tabel toevoegen
+      (id, name, panel_count, wp_per_panel, tilt_degrees, azimuth_degrees, enabled)
+- [ ] `backend/api/routes_solar.py` — CRUD: GET/POST `/api/v1/solar-arrays`,
+      PUT/DELETE `/api/v1/solar-arrays/{id}`
+- [ ] `backend/models/schemas.py` — `SolarArraySchema` + `SolarArrayCreateSchema` toevoegen
+- [ ] `backend/services/forecast.py` — updaten: per uur de output van alle enabled arrays
+      optellen; fallback op config.yaml `ForecastConfig` als er geen DB-arrays zijn
+- [ ] `backend/api/routes_forecast.py` — `total_kwp` retourneren op basis van DB-arrays
+- [ ] `backend/main.py` — `routes_solar` router registreren
+
+### Frontend
+
+- [ ] `frontend/src/types.ts` — `SolarArray` type toevoegen
+- [ ] `frontend/src/pages/Settings.tsx` — "Solar Arrays" sectie toevoegen:
+      lijst van arrays + add/edit/remove knoppen (inline form, geen modal nodig)
+
+### Wat per array wordt opgeslagen
+| Veld | Voorbeeld |
+|---|---|
+| Naam | "Zuid-Oost" |
+| Aantal panelen | 11 |
+| Wp per paneel | 400 |
+| Hellingshoek | 35° |
+| Azimuth | 135° (ZO), 225° (ZW), 180° = Zuid |
+| Ingeschakeld | true/false |
+
+*system_kwp per array = panel_count × wp_per_panel / 1000*
+
+---
+
 ## Review
 
 All 10 phases complete. Full HEMS codebase built from scratch.

@@ -21,7 +21,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from backend import config as cfg
 from backend import scheduler
-from backend.api import routes_config, routes_forecast, routes_history, routes_pricing, routes_status
+from backend.api import routes_config, routes_forecast, routes_history, routes_pricing, routes_solar, routes_status
 from backend.api.websocket import router as ws_router
 from backend.database import init_db
 
@@ -69,6 +69,7 @@ app.include_router(routes_history.router, prefix="/api/v1", tags=["history"])
 app.include_router(routes_config.router, prefix="/api/v1", tags=["config"])
 app.include_router(routes_pricing.router, prefix="/api/v1", tags=["pricing"])
 app.include_router(routes_forecast.router, prefix="/api/v1", tags=["forecast"])
+app.include_router(routes_solar.router, prefix="/api/v1", tags=["solar"])
 app.include_router(ws_router, tags=["websocket"])
 
 

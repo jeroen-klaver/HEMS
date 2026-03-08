@@ -181,6 +181,34 @@ class ForecastResponseSchema(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Solar arrays
+# ---------------------------------------------------------------------------
+
+class SolarArraySchema(BaseModel):
+    """A configured solar array, as returned by GET /api/v1/solar-arrays."""
+
+    id: int
+    name: str
+    panel_count: int
+    wp_per_panel: int
+    tilt_degrees: float
+    azimuth_degrees: float
+    enabled: bool
+    system_kwp: float   # computed: panel_count * wp_per_panel / 1000
+
+
+class SolarArrayCreateSchema(BaseModel):
+    """Request body for POST and PUT /api/v1/solar-arrays."""
+
+    name: str
+    panel_count: int
+    wp_per_panel: int
+    tilt_degrees: float = 35.0
+    azimuth_degrees: float = 180.0
+    enabled: bool = True
+
+
+# ---------------------------------------------------------------------------
 # Charging mode
 # ---------------------------------------------------------------------------
 
