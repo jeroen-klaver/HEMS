@@ -130,7 +130,7 @@ All 10 phases complete. Full HEMS codebase built from scratch.
 
 ### Known next steps / TODOs
 
-- Vehicle SoC API (min_soc / target_soc charging logic is stubbed)
+- ~~Vehicle SoC API~~ → geïmplementeerd via volkswagen_weconnect.py
 - `charge_by_time` enforcement in charging_logic.py is declared in config but not yet implemented
 - Daily summary net cost calculation needs pricing data joined in
 - Settings page does not yet expose global config (lat/lon, pricing, charging thresholds) — only integrations
