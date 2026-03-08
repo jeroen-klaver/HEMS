@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 from datetime import date, datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 from typing import Optional
 from xml.etree import ElementTree
 
@@ -90,8 +91,11 @@ async def _fetch_day(conf: PricingConfig, day: date) -> list[tuple[datetime, flo
     if conf.source != "entso-e" or not conf.entso_e_token:
         return _manual_prices(conf, day)
 
-    period_start = datetime(day.year, day.month, day.day, 0, 0, tzinfo=timezone.utc)
-    period_end = period_start + timedelta(days=1)
+    # Align window to local Amsterdam midnight so bars display as 00:00–23:00 CET/CEST
+    _ams = ZoneInfo("Europe/Amsterdam")
+    local_midnight = datetime(day.year, day.month, day.day, 0, 0, tzinfo=_ams)
+    period_start = local_midnight.astimezone(timezone.utc)
+    period_end = period_start + timedelta(hours=24)
 
     params = {
         "securityToken": conf.entso_e_token,
@@ -107,6 +111,11 @@ async def _fetch_day(conf: PricingConfig, day: date) -> list[tuple[datetime, flo
             response = await client.get(_ENTSO_E_URL, params=params)
             response.raise_for_status()
             prices = _parse_xml(response.text, conf)
+            # Filter to only hours within the requested UTC day window
+            prices = [(h, p) for h, p in prices if period_start <= h < period_end]
+            if not prices:
+                log.warning("ENTSO-E returned 0 price points for %s after filtering", day)
+                return _manual_prices(conf, day)
             log.info("Fetched %d ENTSO-E price points for %s", len(prices), day)
             return prices
     except Exception as exc:
@@ -114,34 +123,79 @@ async def _fetch_day(conf: PricingConfig, day: date) -> list[tuple[datetime, flo
         return _manual_prices(conf, day)
 
 
+def _resolution_to_delta(resolution: Optional[str]) -> timedelta:
+    """Parse ENTSO-E resolution string (PT60M, PT15M, PT30M …) to timedelta."""
+    if resolution and resolution.startswith("PT") and resolution.endswith("M"):
+        try:
+            return timedelta(minutes=int(resolution[2:-1]))
+        except ValueError:
+            pass
+    return timedelta(hours=1)  # default to hourly
+
+
+def _local_tag(elem: ElementTree.Element) -> str:
+    """Return the local (non-namespaced) tag name of an element."""
+    tag = elem.tag
+    return tag[tag.index("}") + 1:] if "}" in tag else tag
+
+
+def _ns_tag(ns_uri: str, local: str) -> str:
+    """Build a namespaced tag string for use with iter()."""
+    return f"{{{ns_uri}}}{local}" if ns_uri else local
+
+
 def _parse_xml(xml_text: str, conf: PricingConfig) -> list[tuple[datetime, float]]:
-    """Parse ENTSO-E XML response into (hour_utc, all_in_price) tuples."""
+    """Parse ENTSO-E XML response into (hour_utc, all_in_price) tuples.
+
+    Uses iter() with the namespace extracted from the root element, so it
+    works regardless of whether the XML namespace changes.
+    """
     root = ElementTree.fromstring(xml_text)
-    results: list[tuple[datetime, float]] = []
 
-    for ts in root.findall(".//ns:TimeSeries", _NS):
-        # Resolution should be PT60M (hourly); skip others
-        resolution = ts.findtext(".//ns:resolution", namespaces=_NS)
-        if resolution != "PT60M":
-            continue
+    # Extract namespace URI from root tag (e.g. '{urn:...}Publication_MarketDocument')
+    ns_uri = root.tag[1:root.tag.index("}")] if "}" in root.tag else ""
+    log.info("ENTSO-E XML: root=%s, ns=%s", _local_tag(root), ns_uri[:40] if ns_uri else "(none)")
 
-        start_str = ts.findtext(".//ns:timeInterval/ns:start", namespaces=_NS)
+    # Accumulate prices per hour (supports both PT60M and PT15M resolutions)
+    hour_prices: dict[datetime, list[float]] = {}
+
+    for ts in root.iter(_ns_tag(ns_uri, "TimeSeries")):
+        # Parse resolution (PT60M = 60min, PT15M = 15min, etc.)
+        resolution = None
+        for res_elem in ts.iter(_ns_tag(ns_uri, "resolution")):
+            resolution = (res_elem.text or "").strip()
+            break
+        delta = _resolution_to_delta(resolution)
+
+        # Find period start time
+        start_str = None
+        for ti in ts.iter(_ns_tag(ns_uri, "timeInterval")):
+            start_elem = ti.find(_ns_tag(ns_uri, "start"))
+            if start_elem is not None and start_elem.text:
+                start_str = start_elem.text.strip()
+            break
         if not start_str:
             continue
         period_start = datetime.fromisoformat(start_str.replace("Z", "+00:00"))
 
-        for point in ts.findall(".//ns:Point", _NS):
-            pos_text = point.findtext("ns:position", namespaces=_NS)
-            price_text = point.findtext("ns:price.amount", namespaces=_NS)
+        # Parse price points and bucket by hour
+        for point in ts.iter(_ns_tag(ns_uri, "Point")):
+            point_data = {_local_tag(child): child.text for child in point}
+            pos_text = point_data.get("position")
+            price_text = point_data.get("price.amount")
             if pos_text is None or price_text is None:
                 continue
             position = int(pos_text)
             raw_price_mwh = float(price_text)
-
-            hour_utc = period_start + timedelta(hours=position - 1)
+            point_dt = period_start + delta * (position - 1)
+            # Round down to full hour for aggregation
+            hour_utc = point_dt.replace(minute=0, second=0, microsecond=0)
             all_in = _apply_markup(raw_price_mwh / 1000.0, conf)  # MWh → kWh
-            results.append((hour_utc, all_in))
+            hour_prices.setdefault(hour_utc, []).append(all_in)
 
+    # Average all sub-hourly prices per hour slot
+    results = [(h, sum(prices) / len(prices)) for h, prices in hour_prices.items()]
+    log.info("ENTSO-E XML: parsed %d hourly price points", len(results))
     return sorted(results, key=lambda x: x[0])
 
 

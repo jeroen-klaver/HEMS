@@ -61,6 +61,7 @@ export default function Pricing() {
             prices={tomorrow.prices}
             average={tomorrow.average_eur_kwh}
             currentPrice={null}
+            highlightCurrent={false}
           />
         </div>
       )}

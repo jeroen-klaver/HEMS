@@ -25,6 +25,7 @@ interface Props {
   prices: PricePoint[];
   average: number | null;
   currentPrice: number | null;
+  highlightCurrent?: boolean;
 }
 
 function barColor(price: number, avg: number): string {
@@ -37,7 +38,7 @@ function fmtHour(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-export default function PriceChart({ prices, average, currentPrice }: Props) {
+export default function PriceChart({ prices, average, currentPrice, highlightCurrent = true }: Props) {
   if (prices.length === 0) {
     return (
       <div className="bg-slate-800 rounded-xl p-4 text-slate-400 text-sm">
@@ -83,6 +84,7 @@ export default function PriceChart({ prices, average, currentPrice }: Props) {
           <Tooltip
             contentStyle={{ background: "#1e293b", border: "none", borderRadius: 8 }}
             labelStyle={{ color: "#94a3b8", fontSize: 11 }}
+            itemStyle={{ color: "#f1f5f9" }}
             formatter={(value: number) => [`€${value.toFixed(4)}/kWh`, "Price"]}
           />
           <ReferenceLine
@@ -96,7 +98,7 @@ export default function PriceChart({ prices, average, currentPrice }: Props) {
               <Cell
                 key={entry.hour}
                 fill={barColor(entry.price, avg)}
-                stroke={entry.hourIndex === nowHour ? "#ffffff" : "transparent"}
+                stroke={highlightCurrent && entry.hourIndex === nowHour ? "#ffffff" : "transparent"}
                 strokeWidth={2}
               />
             ))}

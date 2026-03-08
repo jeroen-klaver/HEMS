@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 
 from backend.integrations.base import (
     BaseIntegration,
@@ -77,12 +78,16 @@ class VolkswagenWeConnect(BaseIntegration):
         ],
     )
 
+    _POLL_INTERVAL = 300  # seconds between actual API calls (VW rate-limits at 5s polling)
+
     def __init__(self, config: dict) -> None:
         super().__init__(config)
         self._username: str = config["username"]
         self._password: str = config["password"]
         self._vin: str = config["vin"].upper().strip()
         self._client = None  # lazy-initialised on first poll
+        self._last_fetch: float = 0.0
+        self._cached: dict = {}
 
     def _get_client(self):
         """Return the WeConnect client, creating and logging in if needed."""
@@ -138,6 +143,11 @@ class VolkswagenWeConnect(BaseIntegration):
         return result
 
     async def poll(self) -> dict:
-        """Fetch current vehicle status from the VW We Connect ID cloud API."""
+        """Fetch current vehicle status, at most once per 5 minutes."""
+        if self._cached and time.monotonic() - self._last_fetch < self._POLL_INTERVAL:
+            return self._cached
         loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(None, self._fetch)
+        result = await loop.run_in_executor(None, self._fetch)
+        self._cached = result
+        self._last_fetch = time.monotonic()
+        return result

@@ -11,6 +11,8 @@ services:
       - hems_data:/data
       # Config comes from the project root (edit config.yaml locally, restart backend)
       - ./config.yaml:/data/config.yaml:ro
+      # Live-reload backend Python code without rebuild (development)
+      - ./backend:/app/backend
     ports:
       # Expose directly for dev/API access without frontend
       - "8000:8000"

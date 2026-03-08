@@ -57,7 +57,7 @@ async def get_history(
             source_id=source_id,
             field=field,
             points=[
-                HistoryPointSchema(timestamp=r.timestamp, value=r.value_float)
+                HistoryPointSchema(timestamp=r.timestamp.replace(tzinfo=timezone.utc), value=r.value_float)
                 for r in rows
             ],
         )
