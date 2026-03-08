@@ -1,12 +1,16 @@
 services:
   backend:
-    build: ./backend
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
     restart: unless-stopped
     environment:
       HEMS_DATA_DIR: /data
     volumes:
-      # Persistent storage: SQLite DB + config.yaml
+      # Persistent storage: SQLite DB lives in named volume
       - hems_data:/data
+      # Config comes from the project root (edit config.yaml locally, restart backend)
+      - ./config.yaml:/data/config.yaml:ro
     ports:
       # Expose directly for dev/API access without frontend
       - "8000:8000"

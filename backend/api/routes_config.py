@@ -28,6 +28,7 @@ from backend.models.schemas import (
     IntegrationInstanceSchema,
     IntegrationTypeSchema,
     IntegrationUpdateSchema,
+    TestByConfigSchema,
     TestConnectionSchema,
 )
 
@@ -67,6 +68,23 @@ async def list_integration_types() -> list[IntegrationTypeSchema]:
         )
         for m in get_all_manifests()
     ]
+
+
+@router.post("/integration-types/{type_id}/test", response_model=TestConnectionSchema)
+async def test_integration_by_config(
+    type_id: str,
+    body: TestByConfigSchema,
+) -> TestConnectionSchema:
+    """Test connectivity using a provided config dict (before saving to DB)."""
+    if not is_registered(type_id):
+        raise HTTPException(status_code=404, detail=f"Unknown integration type: {type_id}")
+    try:
+        cls = get_class(type_id)
+        instance = cls(body.config)
+        success, message = await instance.test_connection()
+    except Exception as exc:
+        success, message = False, str(exc)
+    return TestConnectionSchema(success=success, message=message)
 
 
 # ---------------------------------------------------------------------------
@@ -115,6 +133,26 @@ async def create_integration(
     _reload_scheduler()
     return IntegrationInstanceSchema(id=record.id, type_id=record.type_id,
                                      name=record.name, enabled=record.enabled)
+
+
+@router.get("/integrations/{integration_id}", response_model=IntegrationInstanceSchema)
+async def get_integration(
+    integration_id: str,
+    session: Session = Depends(get_session),
+) -> IntegrationInstanceSchema:
+    """Get a single integration including its config (used by the edit form)."""
+    record = session.get(IntegrationRecord, integration_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Integration not found")
+    return IntegrationInstanceSchema(
+        id=record.id,
+        type_id=record.type_id,
+        name=record.name,
+        enabled=record.enabled,
+        last_seen=record.last_seen,
+        last_error=record.last_error,
+        config=json.loads(record.config_json),
+    )
 
 
 @router.put("/integrations/{integration_id}", response_model=IntegrationInstanceSchema)

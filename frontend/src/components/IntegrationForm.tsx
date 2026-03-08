@@ -52,10 +52,19 @@ export default function IntegrationForm({
   }
 
   async function handleTest() {
-    // To test we need to first save (or have an existing ID)
-    if (!id) { setError("Set an ID first to test the connection."); return; }
     setError(null);
-    const res = await fetch(`/api/v1/integrations/${id}/test`, { method: "POST" });
+    let res: Response;
+    if (initialId) {
+      // Editing existing integration: test by ID (already in DB)
+      res = await fetch(`/api/v1/integrations/${initialId}/test`, { method: "POST" });
+    } else {
+      // Adding new integration: test by type + config (not yet in DB)
+      res = await fetch(`/api/v1/integration-types/${type.id}/test`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ config }),
+      });
+    }
     const data = (await res.json()) as { success: boolean; message: string };
     setTestResult(data);
   }

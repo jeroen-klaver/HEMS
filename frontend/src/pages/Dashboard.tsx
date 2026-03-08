@@ -26,10 +26,8 @@ function PriceTicker({ price }: { price: number | null }) {
 }
 
 function SummaryBar({ devices }: { devices: { category: string; readings: Record<string, number> }[] }) {
-  const solar = devices.find((d) => d.category === "solar");
   const grid = devices.find((d) => d.category === "grid");
 
-  const solarKwh = solar?.readings?.lifetime_kwh != null ? null : null; // lifetime only, not today delta
   const importKwh = grid?.readings?.import_kwh;
   const exportKwh = grid?.readings?.export_kwh;
 

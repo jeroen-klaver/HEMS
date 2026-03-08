@@ -19,6 +19,7 @@ const CATEGORY_ICONS: Record<string, string> = {
   heat_pump: "🌡️",
   smart_plug: "🔌",
   battery: "🔋",
+  vehicle: "🚗",
 };
 
 function fmt(w: number): string {
@@ -80,13 +81,32 @@ export default function DeviceCard({ device, onToggle }: Props) {
       <div className="text-3xl font-bold text-white tabular-nums">
         {hasError ? (
           <span className="text-red-400 text-sm">{device.error}</span>
+        ) : device.category === "vehicle" ? (
+          device.readings["soc_percent"] != null
+            ? `${Math.round(device.readings["soc_percent"])}%`
+            : "–"
         ) : (
           fmt(power)
         )}
       </div>
 
+      {/* Vehicle details */}
+      {device.category === "vehicle" && !hasError && (
+        <div className="flex flex-col gap-0.5 text-sm text-slate-400">
+          {device.readings["range_km"] != null && (
+            <span>Range: {Math.round(device.readings["range_km"])} km</span>
+          )}
+          <span>
+            {device.readings["plug_connected"] === 1 ? "🔌 Aangesloten" : "⛽ Niet aangesloten"}
+          </span>
+          {device.readings["charging_state"] === 1 && (
+            <span className="text-green-400">⚡ Aan het laden</span>
+          )}
+        </div>
+      )}
+
       {/* Today total */}
-      {kwh != null && !hasError && (
+      {kwh != null && !hasError && device.category !== "vehicle" && (
         <div className="text-sm text-slate-400">
           Today: {fmtKwh(kwh)}
         </div>

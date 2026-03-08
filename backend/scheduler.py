@@ -20,6 +20,8 @@ from typing import Optional
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
+from sqlmodel import select
+
 from backend import config as cfg
 from backend.database import get_session_ctx
 from backend.integrations.base import BaseIntegration
@@ -39,16 +41,19 @@ _scheduler: Optional[AsyncIOScheduler] = None
 # ---------------------------------------------------------------------------
 
 def build_instances(conf: cfg.Config) -> dict[str, BaseIntegration]:
-    """Instantiate all enabled integrations from config."""
+    """Instantiate all enabled integrations from the database."""
     instances: dict[str, BaseIntegration] = {}
-    for int_cfg in conf.integrations:
-        if not int_cfg.enabled:
-            continue
-        try:
-            cls = get_class(int_cfg.type_id)
-            instances[int_cfg.id] = cls(int_cfg.config)
-        except Exception:
-            log.exception("Failed to instantiate integration %s (%s)", int_cfg.id, int_cfg.type_id)
+    with get_session_ctx() as session:
+        records = session.exec(select(IntegrationRecord)).all()
+        for record in records:
+            if not record.enabled:
+                continue
+            try:
+                cls = get_class(record.type_id)
+                config = json.loads(record.config_json)
+                instances[record.id] = cls(config)
+            except Exception:
+                log.exception("Failed to instantiate integration %s (%s)", record.id, record.type_id)
     return instances
 
 
@@ -123,8 +128,9 @@ async def poll_all() -> None:
     """Poll all active integrations, update state, persist to DB."""
     conf = cfg.get()
 
-    # Build a name lookup from config
-    name_by_id = {i.id: i.name for i in conf.integrations}
+    # Build a name lookup from the database
+    with get_session_ctx() as session:
+        name_by_id = {r.id: r.name for r in session.exec(select(IntegrationRecord)).all()}
 
     # Poll all instances concurrently
     tasks = [

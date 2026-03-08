@@ -100,9 +100,10 @@ async def on_shutdown() -> None:
 
 def _import_integrations() -> None:
     """Import all integration modules so their @register decorators fire."""
-    import backend.integrations.enphase          # noqa: F401
-    import backend.integrations.homewizard_p1    # noqa: F401
-    import backend.integrations.homewizard_socket  # noqa: F401
-    import backend.integrations.shelly           # noqa: F401
-    import backend.integrations.alfen_eve        # noqa: F401
-    import backend.integrations.weheat           # noqa: F401
+    import backend.integrations.enphase                  # noqa: F401
+    import backend.integrations.homewizard_p1            # noqa: F401
+    import backend.integrations.homewizard_socket        # noqa: F401
+    import backend.integrations.shelly                   # noqa: F401
+    import backend.integrations.alfen_eve                # noqa: F401
+    import backend.integrations.weheat                   # noqa: F401
+    import backend.integrations.volkswagen_weconnect     # noqa: F401

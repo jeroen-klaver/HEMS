@@ -41,6 +41,7 @@ export default function Settings() {
   const [addingTypeId, setAddingTypeId] = useState<string | null>(null);
   // "edit" flow
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingConfig, setEditingConfig] = useState<Record<string, unknown>>({});
 
   useEffect(() => {
     void Promise.all([fetchTypes(), fetchInstances()]).then(([t, i]) => {
@@ -112,6 +113,7 @@ export default function Settings() {
             type={editingType}
             initialId={editingInstance.id}
             initialName={editingInstance.name}
+            initialConfig={editingConfig}
             onSubmit={handleSaveEdit}
             onCancel={() => setEditingId(null)}
           />
@@ -159,7 +161,11 @@ export default function Settings() {
                   />
 
                   <button
-                    onClick={() => setEditingId(inst.id)}
+                    onClick={() => {
+                      void fetch(`/api/v1/integrations/${inst.id}`)
+                        .then((r) => r.json() as Promise<{ config?: Record<string, unknown> }>)
+                        .then((d) => { setEditingConfig(d.config ?? {}); setEditingId(inst.id); });
+                    }}
                     className="text-slate-400 hover:text-white text-sm px-2"
                   >
                     Edit

@@ -49,6 +49,7 @@ class IntegrationInstanceSchema(BaseModel):
     enabled: bool
     last_seen: Optional[datetime] = None
     last_error: Optional[str] = None
+    config: Optional[Dict[str, Any]] = None  # included in detail endpoint only
 
 
 class IntegrationCreateSchema(BaseModel):
@@ -74,6 +75,12 @@ class TestConnectionSchema(BaseModel):
 
     success: bool
     message: str
+
+
+class TestByConfigSchema(BaseModel):
+    """Request body for POST /api/v1/integration-types/{type_id}/test."""
+
+    config: Dict[str, Any]
 
 
 # ---------------------------------------------------------------------------
