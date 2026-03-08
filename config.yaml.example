@@ -1,0 +1,89 @@
+# HEMS configuration — copy to config.yaml and fill in your values.
+# This file is the single source of truth for which integrations are active.
+
+hems:
+  name: "My Home"
+  latitude: 51.5       # used for PV forecast
+  longitude: 4.3
+
+integrations:
+  - id: "my_enphase"
+    type: "enphase_iq_gateway"
+    name: "Zonnepanelen"
+    enabled: true
+    config:
+      host: "192.168.1.x"
+      token: "eyJ..."     # 1-year JWT from enlighten.enphaseenergy.com
+
+  - id: "my_p1"
+    type: "homewizard_p1"
+    name: "Slimme meter"
+    enabled: true
+    config:
+      host: "192.168.1.x"
+
+  - id: "my_alfen"
+    type: "alfen_eve"
+    name: "Laadpaal"
+    enabled: true
+    config:
+      host: "192.168.1.x"
+      min_current: 6
+      max_current: 32
+
+  - id: "my_weheat"
+    type: "weheat"
+    name: "Warmtepomp"
+    enabled: true
+    config:
+      client_id: ""
+      client_secret: ""
+      heat_pump_uuid: ""
+
+  - id: "wasmachine"
+    type: "shelly"
+    name: "Wasmachine"
+    enabled: true
+    config:
+      host: "192.168.1.x"
+      generation: 2       # 1 or 2
+      rated_watts: 2000
+
+  # - id: "boiler"
+  #   type: "homewizard_socket"
+  #   name: "Boiler"
+  #   enabled: true
+  #   config:
+  #     host: "192.168.1.x"
+  #     rated_watts: 2000
+
+charging:
+  mode: "solar"                     # off | min | solar | fast
+  solar_start_threshold_w: 1380     # 6A × 230V minimum to start
+  hysteresis_seconds: 60
+  min_soc_percent: 20               # reserved for future vehicle API
+  target_soc_percent: 80
+  charge_by_time: null              # e.g. "07:00" — charge to target regardless of mode
+
+pricing:
+  source: "entso-e"                 # entso-e | manual
+  entso_e_token: ""                 # free token from transparency.entsoe.eu
+  bidding_zone: "10YNL----------L"  # Netherlands
+  supplier_markup_eur_kwh: 0.04
+  energy_tax_eur_kwh: 0.1108        # energiebelasting NL 2026
+  vat_percent: 21
+  manual_price_eur_kwh: 0.25        # used when source: manual
+
+forecast:
+  enabled: true
+  system_kwp: 8.5
+  tilt_degrees: 35
+  azimuth_degrees: 180              # 180 = south, 90 = east, 270 = west
+
+exports:
+  influxdb:
+    enabled: false
+    url: "http://influxdb:8086"
+    token: ""
+    org: "hems"
+    bucket: "energy"
