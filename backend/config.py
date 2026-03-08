@@ -102,13 +102,20 @@ class Config:
 # Loader
 # ---------------------------------------------------------------------------
 
+def _float(value: object, default: float) -> float:
+    """Parse a float, replacing comma decimal separator with a period."""
+    if value is None:
+        return default
+    return float(str(value).replace(",", "."))
+
+
 def _parse(raw: dict) -> Config:
     """Convert raw YAML dict into a typed Config object."""
     hems_raw = raw.get("hems", {})
     hems = HemsConfig(
         name=hems_raw.get("name", "My Home"),
-        latitude=float(hems_raw.get("latitude", 52.0)),
-        longitude=float(hems_raw.get("longitude", 5.0)),
+        latitude=_float(hems_raw.get("latitude"), 52.0),
+        longitude=_float(hems_raw.get("longitude"), 5.0),
     )
 
     integrations = [
@@ -125,7 +132,7 @@ def _parse(raw: dict) -> Config:
     c = raw.get("charging", {})
     charging = ChargingConfig(
         mode=c.get("mode", "solar"),
-        solar_start_threshold_w=float(c.get("solar_start_threshold_w", 1380)),
+        solar_start_threshold_w=_float(c.get("solar_start_threshold_w"), 1380.0),
         hysteresis_seconds=int(c.get("hysteresis_seconds", 60)),
         min_soc_percent=int(c.get("min_soc_percent", 20)),
         target_soc_percent=int(c.get("target_soc_percent", 80)),
@@ -137,18 +144,18 @@ def _parse(raw: dict) -> Config:
         source=p.get("source", "manual"),
         entso_e_token=p.get("entso_e_token", ""),
         bidding_zone=p.get("bidding_zone", "10YNL----------L"),
-        supplier_markup_eur_kwh=float(p.get("supplier_markup_eur_kwh", 0.04)),
-        energy_tax_eur_kwh=float(p.get("energy_tax_eur_kwh", 0.1228)),
-        vat_percent=float(p.get("vat_percent", 21.0)),
-        manual_price_eur_kwh=float(p.get("manual_price_eur_kwh", 0.25)),
+        supplier_markup_eur_kwh=_float(p.get("supplier_markup_eur_kwh"), 0.04),
+        energy_tax_eur_kwh=_float(p.get("energy_tax_eur_kwh"), 0.1228),
+        vat_percent=_float(p.get("vat_percent"), 21.0),
+        manual_price_eur_kwh=_float(p.get("manual_price_eur_kwh"), 0.25),
     )
 
     f = raw.get("forecast", {})
     forecast = ForecastConfig(
         enabled=bool(f.get("enabled", False)),
-        system_kwp=float(f.get("system_kwp", 0.0)),
-        tilt_degrees=float(f.get("tilt_degrees", 35.0)),
-        azimuth_degrees=float(f.get("azimuth_degrees", 180.0)),
+        system_kwp=_float(f.get("system_kwp"), 0.0),
+        tilt_degrees=_float(f.get("tilt_degrees"), 35.0),
+        azimuth_degrees=_float(f.get("azimuth_degrees"), 180.0),
     )
 
     ix = raw.get("exports", {}).get("influxdb", {})

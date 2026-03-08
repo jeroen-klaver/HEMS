@@ -5,10 +5,8 @@ These are separate from the SQLModel DB models so that API shapes
 can evolve independently from the storage format.
 """
 
-from __future__ import annotations
-
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
@@ -25,7 +23,7 @@ class ConfigFieldSchema(BaseModel):
     type: str
     required: bool
     default: Optional[Any] = None
-    options: Optional[list[str]] = None
+    options: Optional[List[str]] = None
     help_text: str
 
 
@@ -39,7 +37,7 @@ class IntegrationTypeSchema(BaseModel):
     author: str
     supports_control: bool
     icon: str
-    config_fields: list[ConfigFieldSchema]
+    config_fields: List[ConfigFieldSchema]
 
 
 class IntegrationInstanceSchema(BaseModel):
@@ -59,7 +57,7 @@ class IntegrationCreateSchema(BaseModel):
     id: str
     type_id: str
     name: str
-    config: dict[str, Any]
+    config: Dict[str, Any]
     enabled: bool = True
 
 
@@ -67,7 +65,7 @@ class IntegrationUpdateSchema(BaseModel):
     """Request body for PUT /api/v1/integrations/{id}."""
 
     name: Optional[str] = None
-    config: Optional[dict[str, Any]] = None
+    config: Optional[Dict[str, Any]] = None
     enabled: Optional[bool] = None
 
 
@@ -89,7 +87,7 @@ class DeviceReadingSchema(BaseModel):
     name: str
     type_id: str
     category: str
-    readings: dict[str, float]
+    readings: Dict[str, float]
     last_seen: Optional[datetime] = None
     error: Optional[str] = None
 
@@ -107,7 +105,7 @@ class StatusSchema(BaseModel):
     """Full response for GET /api/v1/status and WS /ws/live."""
 
     timestamp: datetime
-    devices: list[DeviceReadingSchema]
+    devices: List[DeviceReadingSchema]
     charging: ChargingStateSchema
     current_price_eur_kwh: Optional[float] = None
 
@@ -128,14 +126,14 @@ class HistorySeriesSchema(BaseModel):
 
     source_id: str
     field: str
-    points: list[HistoryPointSchema]
+    points: List[HistoryPointSchema]
 
 
 class HistoryResponseSchema(BaseModel):
     """Response for GET /api/v1/history."""
 
     range: str
-    series: list[HistorySeriesSchema]
+    series: List[HistorySeriesSchema]
 
 
 # ---------------------------------------------------------------------------
@@ -153,7 +151,7 @@ class PricingResponseSchema(BaseModel):
     """Response for GET /api/v1/pricing/today and /tomorrow."""
 
     date: str
-    prices: list[PricePointSchema]
+    prices: List[PricePointSchema]
     average_eur_kwh: Optional[float] = None
 
 
@@ -172,7 +170,7 @@ class ForecastResponseSchema(BaseModel):
     """Response for GET /api/v1/forecast."""
 
     system_kwp: float
-    points: list[ForecastPointSchema]
+    points: List[ForecastPointSchema]
 
 
 # ---------------------------------------------------------------------------

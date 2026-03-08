@@ -130,7 +130,7 @@ export default function EnergyFlow({ devices, chargingPowerW }: Props) {
 
   return (
     <svg
-      viewBox="0 0 500 340"
+      viewBox="0 0 500 370"
       className="w-full max-w-lg mx-auto"
       aria-label="Energy flow diagram"
     >

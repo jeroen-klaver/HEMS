@@ -56,7 +56,7 @@ async def write_daily_summary(target_date: date | None = None) -> None:
     export_kwh = _delta_counter(readings, field="export_kwh")
 
     summary = DailySummary(
-        date=target_date,
+        day=target_date,
         solar_kwh=solar_kwh,
         grid_import_kwh=import_kwh,
         grid_export_kwh=export_kwh,

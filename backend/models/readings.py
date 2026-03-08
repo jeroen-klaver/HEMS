@@ -8,8 +8,6 @@ Tables:
   daily_summary     — aggregated daily totals
 """
 
-from __future__ import annotations
-
 from datetime import date, datetime
 from typing import Optional
 
@@ -57,7 +55,7 @@ class ChargingSession(SQLModel, table=True):
 class DailySummary(SQLModel, table=True):
     """Aggregated daily energy totals, updated at end of day."""
 
-    date: date = Field(primary_key=True)
+    day: date = Field(primary_key=True)
     solar_kwh: float = 0.0
     grid_import_kwh: float = 0.0
     grid_export_kwh: float = 0.0

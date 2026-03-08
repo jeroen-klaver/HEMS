@@ -3,6 +3,8 @@
 An open-source, self-hosted home energy management system inspired by [evcc](https://evcc.io).
 Local-first, privacy-respecting, and extensible via a single-file plugin architecture.
 
+![HEMS Dashboard](Dashboard-sreenshot.png)
+
 ## Features
 
 - **Real-time energy flow** — animated SVG diagram showing solar, grid, EV, heat pump and smart plug power
